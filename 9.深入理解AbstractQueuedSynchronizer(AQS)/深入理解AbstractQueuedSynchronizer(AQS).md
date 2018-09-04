@@ -6,16 +6,16 @@
 在[上一篇文章](https://juejin.im/post/5aeb055b6fb9a07abf725c8c)中我们对lock和AbstractQueuedSynchronizer(AQS)有了初步的认识。在同步组件的实现中，AQS是核心部分，同步组件的实现者通过使用AQS提供的模板方法实现同步组件语义，AQS则实现了对**同步状态的管理，以及对阻塞线程进行排队，等待通知**等等一些底层的实现处理。AQS的核心也包括了这些方面:**同步队列，独占式锁的获取和释放，共享锁的获取和释放以及可中断锁，超时等待锁获取这些特性的实现**，而这些实际上则是AQS提供出来的模板方法，归纳整理如下：
 
 **独占式锁：**
-
-> void acquire(int arg)：独占式获取同步状态，如果获取失败则插入同步队列进行等待；
-> void acquireInterruptibly(int arg)：与acquire方法相同，但在同步队列中进行等待的时候可以检测中断；
-> boolean tryAcquireNanos(int arg, long nanosTimeout)：在acquireInterruptibly基础上增加了超时等待功能，在超时时间内没有获得同步状态返回false;
+  
+> void acquire(int arg)：独占式获取同步状态，如果获取失败则插入同步队列进行等待；  
+> void acquireInterruptibly(int arg)：与acquire方法相同，但在同步队列中进行等待的时候可以检测中断；  
+> boolean tryAcquireNanos(int arg, long nanosTimeout)：在acquireInterruptibly基础上增加了超时等待功能，在超时时间内没有获得同步状态返回false;  
 > boolean release(int arg)：释放同步状态，该方法会唤醒在同步队列中的下一个节点
 
-**共享式锁：**
-> void acquireShared(int arg)：共享式获取同步状态，与独占式的区别在于同一时刻有多个线程获取同步状态；
-> void acquireSharedInterruptibly(int arg)：在acquireShared方法基础上增加了能响应中断的功能；
-> boolean tryAcquireSharedNanos(int arg, long nanosTimeout)：在acquireSharedInterruptibly基础上增加了超时等待的功能；
+**共享式锁：**  
+> void acquireShared(int arg)：共享式获取同步状态，与独占式的区别在于同一时刻有多个线程获取同步状态；  
+> void acquireSharedInterruptibly(int arg)：在acquireShared方法基础上增加了能响应中断的功能；  
+> boolean tryAcquireSharedNanos(int arg, long nanosTimeout)：在acquireSharedInterruptibly基础上增加了超时等待的功能；  
 > boolean releaseShared(int arg)：共享式释放同步状态
 
 
@@ -25,19 +25,19 @@
 当共享资源被某个线程占有，其他请求该资源的线程将会阻塞，从而进入同步队列。就数据结构而言，队列的实现方式无外乎两者一是通过数组的形式，另外一种则是链表的形式。AQS中的同步队列则是**通过链式方式**进行实现。接下来，很显然我们至少会抱有这样的疑问：**1. 节点的数据结构是什么样的？2. 是单向还是双向？3. 是带头结点的还是不带头节点的？**我们依旧先是通过看源码的方式。
 
 在AQS有一个静态内部类Node，其中有这样一些属性：
-
-> volatile int waitStatus //节点状态
-> volatile Node prev //当前节点/线程的前驱节点
-> volatile Node next; //当前节点/线程的后继节点
-> volatile Thread thread;//加入同步队列的线程引用
+  
+> volatile int waitStatus //节点状态  
+> volatile Node prev //当前节点/线程的前驱节点  
+> volatile Node next; //当前节点/线程的后继节点  
+> volatile Thread thread;//加入同步队列的线程引用  
 > Node nextWaiter;//等待队列中的下一个节点
 
 节点的状态有以下这些：
-
-> int CANCELLED =  1//节点从同步队列中取消
-> int SIGNAL    = -1//后继节点的线程处于等待状态，如果当前节点释放同步状态会通知后继节点，使得后继节点的线程能够运行；
-> int CONDITION = -2//当前节点进入等待队列中
-> int PROPAGATE = -3//表示下一次共享式同步状态获取将会无条件传播下去
+  
+> int CANCELLED =  1//节点从同步队列中取消  
+> int SIGNAL    = -1//后继节点的线程处于等待状态，如果当前节点释放同步状态会通知后继节点，使得后继节点的线程能够运行；  
+> int CONDITION = -2//当前节点进入等待队列中  
+> int PROPAGATE = -3//表示下一次共享式同步状态获取将会无条件传播下去  
 > int INITIAL = 0;//初始状态
 
 现在我们知道了节点的数据结构类型，并且每个节点拥有其前驱和后继节点，很显然这是**一个双向队列**。同样的我们可以用一段demo看一下。
@@ -103,7 +103,7 @@ Thread-0先获得锁后进行睡眠，其他线程（Thread-1,Thread-2,Thread-3,
 	}
 
 关键信息请看注释，acquire根据当前获得同步状态成功与否做了两件事情：1. 成功，则方法结束返回，2. 失败，则先调用addWaiter()然后在调用acquireQueued()方法。
-
+  
 > **获取同步状态失败，入队操作**
 
 
@@ -188,7 +188,7 @@ Thread-0先获得锁后进行睡眠，其他线程（Thread-1,Thread-2,Thread-3,
 
 ![自旋获取锁整体示意图.png](http://upload-images.jianshu.io/upload_images/2615789-3fe83cfaf03a02c8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-
+  
 > **获取锁成功，出队操作**
 
 获取锁的节点出队的逻辑是：
@@ -327,7 +327,7 @@ shouldParkAfterFailedAcquire()方法主要逻辑是使用`compareAndSetWaitStatu
 
 总体来说：**在获取同步状态时，AQS维护一个同步队列，获取同步状态失败的线程会加入到队列中进行自旋；移除队列（或停止自旋）的条件是前驱节点是头结点并且成功获得了同步状态。在释放同步状态时，同步器会调用unparkSuccessor()方法唤醒后继节点。**
 
-
+  
 > **独占锁特性学习**
 
 ## 3.3 可中断式获取锁（acquireInterruptibly方法） ##
@@ -533,7 +533,7 @@ shouldParkAfterFailedAcquire()方法主要逻辑是使用`compareAndSetWaitStatu
 关于可中断锁以及超时等待的特性其实现和独占式锁可中断获取锁以及超时等待的实现几乎一致，具体的就不再说了，如果理解了上面的内容对这部分的理解也是水到渠成的。
 
 通过这篇，加深了对AQS的底层实现更加清楚了，也对了解并发组件的实现原理打下了基础，学无止境，继续加油:);如果觉得不错，请给赞，嘿嘿。
-
+  
 > 参考文献
 
 《java并发编程的艺术》
